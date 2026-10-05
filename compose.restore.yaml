@@ -1,0 +1,4 @@
+services:
+  odoo:
+    ports:
+      - "8071:8069"

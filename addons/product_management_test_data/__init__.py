@@ -1,0 +1,1 @@
+# Addon contains XML seed data only.

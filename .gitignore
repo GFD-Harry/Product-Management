@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.pem
 *.key
 
@@ -53,3 +54,8 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+# Customer delivery artifacts
+customer_delivery_*/
+product_management_uat_before_uat.sql
+customer_delivery_*.zip

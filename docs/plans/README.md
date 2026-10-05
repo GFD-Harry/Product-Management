@@ -6,6 +6,10 @@ Mỗi file Epic mô tả mục tiêu, phạm vi, quyết định, danh sách cô
 
 ## Danh sách Epic
 
+### Kế hoạch vận hành môi trường
+
+- [Tách Development, UAT và Production](./enviroment_separation_plan.md): danh sách task `ENV-01` đến `ENV-21`, cấu hình mục tiêu, quy trình release và điều kiện hoàn thành.
+
 ### Epic 1. Project Setup
 - Cấu hình Odoo addon.
 - Cấu hình PostgreSQL/Docker.

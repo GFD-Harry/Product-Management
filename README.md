@@ -6,8 +6,9 @@ hỗ trợ tư vấn khách hàng và theo dõi cơ bản giá bán, số lượ
 
 ## Trạng thái
 
-Dự án đang ở giai đoạn khởi tạo. SET-01 đến SET-04 đã hoàn thành repository,
-Odoo, PostgreSQL và môi trường Docker Compose.
+Dự án đã có addon nghiệp vụ, dữ liệu Test/UAT, tài liệu kiểm thử
+và cấu hình Docker Compose. Công việc hiện tại tập trung vào việc tách
+biệt Development, UAT và Production trước khi go-live.
 
 ## Công nghệ
 
@@ -60,45 +61,125 @@ Cấu hình development nằm tại `config/odoo.conf`. Khi container được t
 - `addons/` được mount vào `/mnt/extra-addons`.
 - Dữ liệu Odoo nằm tại `/var/lib/odoo` và được giữ bằng named volume.
 
-`odoo.conf` không chứa database password hoặc master password. Các giá trị bí
-mật được cung cấp từ `.env` khi Docker Compose được tạo ở SET-04.
+`odoo.conf` không chứa database password hoặc master password. Development
+và UAT hiện dùng `.env`; Production dùng `.env.prod` riêng.
 
-## Bắt đầu
+## Chuẩn bị file môi trường
 
 ```bash
 git clone <repository-url>
 cd product-management-pv
 cp .env.example .env
+cp .env.prod.example .env.prod
 ```
 
-Mở `.env` và thay các giá trị có tiền tố `replace_with_`. Không commit `.env`.
+Mở hai file và thay các giá trị có tiền tố `replace_with_`.
+Không commit `.env` hoặc `.env.prod`.
 
-Khởi động development bằng:
+Giữ `POSTGRES_USER=odoo` để khớp với cấu hình Odoo hiện tại.
+Database Dev/UAT được chọn tường minh bằng `-d` trong lệnh cài
+addon, không phụ thuộc vào `ODOO_DATABASE` trong `.env`.
+
+Do Development và UAT dùng chung `.env` và `ODOO_PORT`, không chạy đồng
+thời hai project trên cùng một máy. Nếu cần chạy đồng thời, khi đó
+mới tách thêm file env hoặc ghi đè port cho một project.
+
+## Triển khai Development
+
+Development dùng Compose project `product-management-dev`, database
+`product_management_dev` và addon `product_management_test_data`. Addon dữ
+liệu test phụ thuộc vào `product_management`, vì vậy Odoo sẽ tự cài addon
+nghiệp vụ nếu database chưa có.
 
 ```bash
-docker compose -f compose.yaml -f compose.dev.yaml up -d
+docker compose -p product-management-dev --env-file .env \
+  -f compose.yaml -f compose.dev.yaml up -d db
+
+docker compose -p product-management-dev --env-file .env \
+  -f compose.yaml -f compose.dev.yaml run --rm odoo \
+  -d product_management_dev \
+  -i product_management_test_data \
+  --stop-after-init --no-http
+
+docker compose -p product-management-dev --env-file .env \
+  -f compose.yaml -f compose.dev.yaml up -d odoo
 ```
 
-Trong lần chạy đầu tiên, mở:
+Truy cập Development tại:
 
 ```text
-http://localhost:8069/web/database/manager
+http://localhost:<ODOO_PORT>
 ```
 
-Dùng giá trị `ODOO_ADMIN_PASSWORD` làm master password và tạo database
-`product_management_dev`.
+## Triển khai UAT
 
-Các lệnh vận hành:
+UAT dùng Compose project `product-management-uat`, database
+`product_management_uat` và addon `product_management_uat_data`. Dữ liệu UAT
+chỉ được nạp vào database này.
 
 ```bash
-docker compose ps
-docker compose logs -f odoo
-docker compose stop
-docker compose down
+docker compose -p product-management-uat --env-file .env \
+  -f compose.yaml -f compose.dev.yaml up -d db
+
+docker compose -p product-management-uat --env-file .env \
+  -f compose.yaml -f compose.dev.yaml run --rm odoo \
+  -d product_management_uat \
+  -i product_management_uat_data \
+  --stop-after-init --no-http
+
+docker compose -p product-management-uat --env-file .env \
+  -f compose.yaml -f compose.dev.yaml up -d odoo
 ```
 
-Không dùng `docker compose down -v` cho development hoặc production vì tùy
-chọn `-v` xóa volume dữ liệu.
+Truy cập UAT tại `http://<server-ip>:<ODOO_PORT>` hoặc qua domain UAT
+nếu đã cấu hình reverse proxy.
+
+## Triển khai Production
+
+Production dùng Compose project `product-management-prod`, database
+`product_management_prod` và chỉ cài addon nghiệp vụ `product_management`.
+Không cài `product_management_test_data` hoặc
+`product_management_uat_data` trên Production.
+
+```bash
+docker compose -p product-management-prod --env-file .env.prod \
+  -f compose.yaml -f compose.prod.yaml up -d db
+
+docker compose -p product-management-prod --env-file .env.prod \
+  -f compose.yaml -f compose.prod.yaml run --rm odoo \
+  -d product_management_prod \
+  -i product_management \
+  --stop-after-init --no-http
+
+docker compose -p product-management-prod --env-file .env.prod \
+  -f compose.yaml -f compose.prod.yaml up -d odoo
+```
+
+`compose.prod.yaml` chỉ bind Odoo vào `127.0.0.1`. Production cần được đặt
+sau Nginx và HTTPS trước khi cho phép người dùng truy cập.
+
+## Cập nhật addon đã cài
+
+Trước khi update, dừng service Odoo của đúng môi trường. Thay `-i`
+bằng `-u`, sau đó khởi động lại Odoo. Ví dụ cho UAT:
+
+```bash
+docker compose -p product-management-uat --env-file .env \
+  -f compose.yaml -f compose.dev.yaml stop odoo
+
+docker compose -p product-management-uat --env-file .env \
+  -f compose.yaml -f compose.dev.yaml run --rm odoo \
+  -d product_management_uat \
+  -u product_management,product_management_uat_data \
+  --stop-after-init --no-http
+
+docker compose -p product-management-uat --env-file .env \
+  -f compose.yaml -f compose.dev.yaml up -d odoo
+```
+
+Luôn dùng cùng `-p`, `--env-file` và cặp file Compose cho mọi lệnh
+vận hành của một môi trường. Không dùng
+`docker compose down -v`; tùy chọn `-v` xóa database và Odoo filestore.
 
 ## Docker Compose
 
@@ -112,26 +193,33 @@ chọn `-v` xóa volume dữ liệu.
 PostgreSQL phải healthy trước khi Odoo khởi động. Port PostgreSQL `5432` chỉ
 hoạt động trong Docker network và không được publish ra host.
 
-Named volumes:
+Mỗi Compose project tạo network và named volume riêng. Ví dụ:
 
 ```text
-product-management-pv_db-data
-product-management-pv_odoo-data
+product-management-dev_db-data
+product-management-dev_odoo-data
+product-management-uat_db-data
+product-management-uat_odoo-data
+product-management-prod_db-data
+product-management-prod_odoo-data
 ```
 
-Master password được đọc từ `.env`, ghi vào file cấu hình tạm bên trong
-container bởi `scripts/odoo-entrypoint.sh` và không được lưu trong repository.
+Master password được đọc từ file môi trường, ghi vào file cấu
+hình tạm bên trong container bởi `scripts/odoo-entrypoint.sh` và không
+được lưu trong repository.
 `compose.prod.yaml` mới là cấu hình nền; việc đóng gói addon vào image, khóa
 digest, Nginx và HTTPS thuộc Epic 9.
 
 ## URL truy cập
 
 ```text
-Development: http://localhost:8069
-Trong mạng:  http://<server-ip>:<ODOO_PORT>
+Development: http://localhost:<ODOO_PORT trong .env>
+UAT:         http://<server-ip>:<ODOO_PORT trong .env>
+Production:  https://<production-domain>
 ```
 
-Production sẽ sử dụng tên miền và HTTPS sau khi Epic 9 được thực hiện.
+Production chỉ được mở cho người dùng sau khi tên miền, reverse proxy
+và HTTPS đã được cấu hình.
 
 ## Cấu trúc repository
 
@@ -139,15 +227,16 @@ Production sẽ sử dụng tên miền và HTTPS sau khi Epic 9 được thực
 product-management-pv/
 ├── .github/workflows/       GitHub Actions
 ├── addons/                  Custom Odoo addons
-│   └── product_management/  Module nghiệp vụ chính, tạo ở SET-05
+│   ├── product_management/           Addon nghiệp vụ chính
+│   ├── product_management_test_data/ Dữ liệu Development/Test
+│   └── product_management_uat_data/  Dữ liệu UAT
 ├── config/                  Cấu hình Odoo
 ├── docs/                    Tài liệu dự án
-├── plans/                   Kế hoạch chi tiết theo Epic
 ├── scripts/                 Quy trình kỹ thuật chạy lặp lại
-├── .env.example             Mẫu biến môi trường
+├── .env.example             Mẫu biến Development/UAT
+├── .env.prod.example        Mẫu biến Production
 ├── .gitignore
 ├── compose.yaml             Cấu hình container dùng chung
-├── compose.ci.yaml          Cấu hình CI, tạo ở SET-07
 ├── compose.dev.yaml         Cấu hình development
 └── compose.prod.yaml        Nền cấu hình production
 ```
@@ -177,40 +266,21 @@ kết nối của Odoo. Trong cấu hình Compose ở SET-04:
 
 - Host database là tên service `db`.
 - Port `5432` chỉ mở trong Docker network, không publish ra host.
-- Database và password khởi tạo lấy từ `.env`.
+- Database khởi tạo và password lấy từ file biến môi trường đã chọn.
 - Dữ liệu PostgreSQL được giữ trong named volume.
 
 SET-03 đã kiểm tra Odoo 19 tạo database qua Docker network và xác nhận dữ liệu
 vẫn tồn tại sau khi container PostgreSQL được tạo lại với cùng volume.
 
-## Module Odoo
+## Addon Odoo
 
 Tên kỹ thuật của module là `product_management`, version hiện tại
 `19.0.1.0.0`.
 
-Có thể cài module từ giao diện Apps hoặc bằng lệnh:
-
-```bash
-docker compose -f compose.yaml -f compose.dev.yaml run --rm odoo \
-  -d product_management_dev \
-  -i product_management \
-  --stop-after-init \
-  --no-http
-```
-
-Cập nhật module:
-
-```bash
-docker compose -f compose.yaml -f compose.dev.yaml run --rm odoo \
-  -d product_management_dev \
-  -u product_management \
-  --stop-after-init \
-  --no-http
-
-docker compose -f compose.yaml -f compose.dev.yaml restart odoo
-```
-
-Luôn luôn restart docker sau khi update module.
+Hai addon dữ liệu `product_management_test_data` và
+`product_management_uat_data` đều khai báo `auto_install = False`. Chúng chỉ
+được cài khi lệnh triển khai của đúng môi trường chỉ định rõ addon.
+Production chỉ cài `product_management`.
 
 ## Quy trình Git
 
@@ -251,19 +321,112 @@ Git tag phát hành sử dụng Semantic Versioning, ví dụ `v0.1.0`, `v1.0.0-
 và `v1.0.0`. Không dùng tag `dev` hoặc `prod` có thể bị di chuyển làm định danh
 duy nhất.
 
+## Restore Backup từ Cloudclare R2
+### 1. Chuẩn bị
+Backup gồm 2 file:
+
+- PostgreSQL database: `product_management_prod_YYYY-MM-DD_HH-MM-SS.dump`
+- Odoo filestore: `filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz`
+
+Restore trên environment riêng `product-management-restore`.
+
+### 2. Xem các backup trên R2
+```bash
+rclone ls r2:pv-product-management-backup
+```
+Chọn cùng timestamp cho db và filestore
+
+### 3. Download Backup
+```bash
+mkdir -p ~/restore-backup
+```
+
+- Download db
+```bash
+rclone copy \
+  r2:pv-product-management-backup/filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz \
+  ~/restore-backup/ \
+  --s3-no-check-bucket
+```
+
+- Download filestores
+```bash
+rclone copy \
+  r2:pv-product-management-backup/filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz \
+  ~/restore-backup/ \
+  --s3-no-check-bucket
+```
+
+- Kiểm tra:
+```
+ls -lh ~/restore-backup/
+```
+
+### 4. Restore DB
+- Tạo DB Restore:
+```
+docker exec product-management-restore-db-1 \
+  psql -U odoo -d postgres \
+  -c "CREATE DATABASE product_management_restore OWNER odoo;"
+```
+
+- Restore
+```bash
+time docker exec -i product-management-restore-db-1 \
+  pg_restore \
+  -U odoo \
+  -d product_management_restore \
+  --no-owner \
+  < ~/restore-backup/product_management_prod_YYYY-MM-DD_HH-MM-SS.dump
+```
+
+- Kiểm tra
+```bash
+docker exec product-management-restore-db-1 \
+  psql -U odoo -d postgres \
+  -c "\l"
+```
+
+### 5. Restore Filestore
+- Dừng Odoo:
+```bash
+docker compose -p product-management-restore stop odoo
+```
+
+- Tạo thư mục filestore:
+```bash
+sudo mkdir -p \
+/var/lib/docker/volumes/product-management-restore_odoo-data/_data/filestore
+```
+
+- Extract backup:
+```bash
+sudo tar -xzf \
+~/restore-backup/filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz \
+-C /var/lib/docker/volumes/product-management-restore_odoo-data/_data/filestore
+```
+
+Lười
+
 ## Xử lý lỗi thiết lập
 
 ### Container không chạy
 
+Luôn thêm đúng project name, file biến môi trường và cặp file
+Compose. Ví dụ kiểm tra Development:
+
 ```bash
-docker compose ps
-docker compose logs odoo
-docker compose logs db
+docker compose -p product-management-dev --env-file .env \
+  -f compose.yaml -f compose.dev.yaml ps
+
+docker compose -p product-management-dev --env-file .env \
+  -f compose.yaml -f compose.dev.yaml logs odoo db
 ```
 
 ### Port 8069 đã được sử dụng
 
-Đổi `ODOO_PORT` trong `.env`, ví dụ thành `8070`, rồi tạo lại container.
+Đổi `ODOO_PORT` trong file môi trường tương ứng, sau đó chạy lại
+lệnh `up -d odoo` của môi trường đó.
 
 ### Odoo không kết nối PostgreSQL
 
@@ -291,5 +454,6 @@ Kiểm tra persistent volume cho cả PostgreSQL database và Odoo filestore.
 
 ## Kế hoạch
 
-Xem [mục lục kế hoạch](plans/README.md) và
-[Epic 1 — Khởi tạo dự án](plans/epic-1.md).
+Xem [mục lục kế hoạch](docs/plans/README.md),
+[kế hoạch triển khai](docs/plans/implementation_plan.md) và
+[kế hoạch tách môi trường](docs/plans/enviroment_separation_plan.md).
