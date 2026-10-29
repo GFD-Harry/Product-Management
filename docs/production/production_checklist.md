@@ -1,170 +1,136 @@
 # Production Checklist
 ## 0. Information
 ## 1. Pre-Flight Checklist
-### 1.1. Server Sizing
-- VPS:
-  - CPU: 2 vCPU
-  - RAM: 4GB
-  - Disk: 30GB SSD
+| Category | Item | Value | Status |
+|---|---|---|---|
+| Server Sizing | CPU | 2 vCPU | Pass |
+| Server Sizing | RAM | 4GB | Pass |
+| Server Sizing | Disk | 50GB SSD | Pass |
+| Workload | Users / Concurrent | ~10 / ~3–4 | Pass |
+| Resource Allocation | Workers / RAM | 3 / ~1.5GB | Pass |
+| Odoo Configuration | `workers` | 3 | Pass |
+| Odoo Configuration | `max_cron_threads` | 1 | Pass |
+| Odoo Configuration | `limit_memory_soft` | 536870912 | Pass |
+| Odoo Configuration | `limit_memory_hard` | 805306368 | Pass |
+| Cloud Provider | Type | VPS — Eztech | Pass |
+| Odoo Version | Version | 19.0.0 | Pass |
+| Module Inventory | Name | Product Management | Pass |
+| Module Inventory | Version / Author | 19.0.1.0.0 / Product Management PV | Pass |
+| Module Inventory | Depends | `base` | Pass |
+| Module Inventory | Purpose | Manage internal product information; support customer consultation | Pass |
 
-- Workload:
-  - Users: ~10
-  - Concurrent users: ~3-4
-
-- Resource allocation:
-  - Odoo workers: 3
-  - RAM allocation for Odoo: ~1.5GB
-
-- Odoo configuration:
-  - workers = 3
-  - max_cron_threads = 1
-  - limit_memory_soft = 536870912
-  - limit_memory_hard = 805306368
-
-### 1.2. Cloud Provider
-- VPS
-
-### 1.3. Odoo Version
-- 19.0.0
-### 1.4. Module Inventory
-- Custom Modules:
-    - Product Management
-    - Version: 19.0.1.0.0
-    - Author: Product Management PV
-    - Depends:
-        - base
-    - Purpose:
-        - Manage internal product information
-        - Customer consultation support
+Cấu hình được lựa chọn dựa trên quy mô sử dụng (team 10 người), nhu cầu vận hành thực tế (2-3 người dùng cùng lúc), ngân sách phát triển (<500k/tháng), đảm bảo hệ thống ổn định, đáp ứng nhu cầu và tối ưu tài nguyên máy chủ
 
 ## 2. Server Setup Checklist
-### 2.1. OS
-**Host**
-- OS: Ubuntu 24.04 LTS
-- Docker Engine: 29.1.3
-- Docker Compose: v2.40.3
-**Deployment**
-- Runtime: Docker Compose
 
-### 2.2. PostgreSQL
-- postgresql 15
+| Category | Item | Configuration | Status |
+|---|---|---|---|
+| OS | Host OS | Ubuntu 22.04.1 LTS | Pass |
+| OS | Docker Engine | 29.1.3 | Pass |
+| OS | Docker Compose | v2.40.3 | Pass |
+| Deployment | Runtime | Docker Compose | Pass |
+| PostgreSQL | Version | 15 | Pass |
+| Python | Management | Managed by Odoo Docker image | Pass |
+| wkhtmltopdf | Management | Managed by Odoo Docker image | Pass |
+| Odoo System User | Configuration | Not required; deployment uses Docker Compose | Pass |
+| Firewall | Software | UFW | Pass |
+| Firewall | Status | Active | Pass |
+| Firewall | Default incoming | Deny | Pass |
+| Firewall | Allowed ports | 22/tcp (SSH), 80/tcp (HTTP), 443/tcp (HTTPS) | Pass |
+| Firewall | Odoo ports | 8069/8070 — Not publicly exposed | Pass |
+| Firewall | PostgreSQL port | 5432 — Not publicly exposed | Pass |
+| Fail2ban | Status | Installed and enabled | Pass |
+| Fail2ban | SSH jail | Configured | Pass |
+| Fail2ban | Protection | SSH brute-force protection active | Pass |
 
-### 2.3. Python
-- Managed by odoo docker image
-
-### 2.4. wkhtmltoppdf
-- Managed by Odoo Docker image
-
-### 2.5. Odoo System User
-- Skip because of using Docker Compose to Deploy
-
-### 2.6. Firewall
-- Firewall: UFW
-- Status: Active
-- Default incoming: Deny
-- Allowed: 
-  - 22/tcp --> SSH
-  - 80/tcp --> HTTP
-  - 443/tcp --> HTTPS
-- Odoo 8069/8070: Not publicly exposed
-- PostgreSQL 5432: Not publicly exposed
-
-### 2.7. Fail2ban
-- Installed & enabled
-- SSH jail configured
-- SSH brute-force protection active
+- OS: `Ubuntu 22.04 LTS` được chọn nhờ tính ổn định, hỗ trợ dài hạn và tương thích Docker
+- Firewall và Fail2ban: `UFM` giới hạn các công truy cập công khai, `Fail2ban` phát hiện và chặn các IP có hành vi đăng nhập bất thường (Brute-force) 
 
 ### 3. Odoo Configuration Checklist
 
-## 3.1. Master Password
-- admin_passwd changed from default
-- Strong and unique password
-- Master password for Odoo Database Manager
-- Not the same as Odoo user password
+| Category | Item | Configuration | Status |
+|---|---|---|---|
+| Master Password | `admin_passwd` | Changed from default | Pass |
+| Database Manager | `list_db` | `False` | Pass |
+| Workers | CPU | 2 vCPU | Pass |
+| Workers | `workers` | 3 | Pass |
+| Workers | `max_cron_threads` | 1 | Pass |
+| Memory Limits | `limit_memory_soft` | 536870912 (512 MB) | Pass |
+| Memory Limits | `limit_memory_hard` | 805306368 (768 MB) | Pass |
+| Reverse Proxy | `proxy_mode` | `True` | Pass |
+| Reverse Proxy | Nginx | Configured as reverse proxy | Pass |
+| Reverse Proxy | `X-Forwarded-For` | Configured | Pass |
+| Reverse Proxy | `X-Forwarded-Proto` | Configured | Pass |
+| Reverse Proxy | HTTP → HTTPS | Redirect configured | Pass |
+| Longpolling / WebSocket | Usage | Not required | Pass |
+| Longpolling / WebSocket | Port exposure | No additional port exposed | Pass |
 
-### 3.2. Database Manager
-- list_db = False
-- Database Manager not exposed on production
-- Prevent database listing/creation/deletion through the web UI
-### 3.3. Workers
-- CPU: 2 vCPU
-- workers = 3
-- max_cron_threads = 1
-- Reference formula: (CPU_cores × 2) + 1
-### 3.4. Memory Limits
-- limit_memory_soft = 536870912 (512 MB)
-- limit_memory_hard = 805306368 (768 MB)
-- Soft limit: Worker is recycled after completing the current request
-- Hard limit: Worker is terminated when the limit is exceeded
-### 3.5. Reverse Proxy
-- proxy_mode = True
-- Nginx configured as reverse proxy
-- X-Forwarded-For configured
-- X-Forwarded-Proto configured
-- HTTP → HTTPS redirect configured
-### 3.6. Longpolling / WebSocket
-- Not required
-- Live Chat / Discuss / real-time notification: Not used
-- No additional longpolling port exposed
-
+- Các cấu hình quan trọng được lựa chọn nhằm tăng cường bảo mật và đảm bảo hiệu năng vận hành của Odoo production. admin_passwd và list_db = False hạn chế rủi ro quản trị database; workers và memory limits kiểm soát việc sử dụng tài nguyên; proxy_mode kết hợp Nginx và HTTPS đảm bảo xử lý request an toàn, chính xác.
 ## 4. Security Checklist
 ### 4.1. HTTPS/SSL
-- Let's Encrypt + Certbot - SSL certificate cho pv.harryon.io.vn đã được cấp và hoạt động
-- HTTPS bắt buộc - Nginx cấu hình HTTPS và HTTP (HTTPS redirect)
-- Auto-renewal - certbot.timer active, tự động chạy 2 lần/ngày
-- Reviewal test - certbot renew --dry-run thành công cho toàn bộ certificate.
+
+| Item | Configuration / Actual | Status |
+|---|---|---|
+| SSL Certificate | Let's Encrypt — `pv.harryon.io.vn` | Pass |
+| Certificate Validity | Expires 30/12/2026, còn 73 ngày tại thời điểm kiểm tra | Pass |
+| HTTPS | Website phản hồi `HTTP 303 SEE OTHER` | Pass |
+| HTTP → HTTPS | `HTTP 301 Moved Permanently` | Pass |
+| Auto-renewal | `certbot.timer` enabled và active | Pass |
+| Renewal Schedule | Chạy 2 lần/ngày | Pass |
+| Renewal Test | `certbot renew --dry-run` thành công cho cả 2 certificates | Pass |
+
+- HTTPS/SSL mã hóa dữ liệu trao đổi giữa người dùng và máy chủ, bảo vệ thông tin đăng nhập và dữ liệu nghiệp vụ. Cấu hình chuyển hướng HTTP sang HTTPS đảm bảo các kết nối sử dụng giao thức an toàn. Tự động gia hạn chứng chỉ giúp tránh gián đoạn dịch vụ do chứng chỉ hết hạn.
+
 ### 4.2. Nginx Security Header
-- [x] X-Content-Type-Options
-- [x] X-Frame-Options
-- [x] Strict-Transport-Security (HSTS)
-- [ ] Content-Security-Policy (CSP) — deferred due to Odoo compatibility
-### 4.3. PostgreSQL Access
-- Không expose port 5432 ra Internet
-- Odoo --> PostgreSQL qua Docker Internal Network
-### 4.4. SSH Authentication
-- Tạm thời chưa implement
-### 4.5. Automatic Security Update
-- `unattended-upgrades` được cài đặt và hoạt động
-- Ubuntu host tự động nhận security patches
-### 4.6. Odoo Admin Account
-- Thay đổi default usern và pw của admin odoo
 
+| Item | Configuration thực tế | Status |
+|---|---|---|
+| X-Content-Type-Options | `nosniff` | Pass |
+| X-Frame-Options | `SAMEORIGIN` | Pass |
+| Strict-Transport-Security (HSTS) | `max-age=31536000` (1 năm) | Pass |
+| Content-Security-Policy (CSP) | Chưa cấu hình | Deferred |
+
+- Security Headers giúp tăng cường bảo mật cho ứng dụng web, hạn chế các rủi ro như MIME-type sniffing, clickjacking và một số hình thức tấn công dựa trên trình duyệt. CSP được hoãn triển khai để tránh ảnh hưởng đến khả năng tương thích của Odoo.
+
+### 4.3. PostgreSQL Access/SSH Auth/Automatic Security Update/Odoo Admin account
+
+| Category | Item | Configuration thực tế | Status |
+|---|---|---|---|
+| PostgreSQL Access | Port 5432 | Không publish port ra host | Pass |
+| PostgreSQL Access | Docker Network | Odoo kết nối PostgreSQL qua Docker network | Pass |
+| SSH Authentication | SSH Key | Chưa triển khai | Pending |
+| Automatic Security Update | `unattended-upgrades` | Đã cài đặt, service active | Pass |
+| Automatic Security Update | Security Patches | Cấu hình tự động cập nhật bảo mật | Pass* |
+| Odoo Admin Account | Default Username | Đã thay đổi | Pass* |
+| Odoo Admin Account | Default Password | Đã thay đổi | Pass* |
+
+- Các cấu hình bảo mật giúp hạn chế nguy cơ truy cập trái phép vào database, máy chủ và tài khoản quản trị Odoo. PostgreSQL chỉ giao tiếp qua mạng nội bộ Docker nhằm giảm bề mặt tấn công; unattended-upgrades giúp tự động cập nhật các bản vá bảo mật cho Ubuntu; thay đổi thông tin đăng nhập mặc định giúp bảo vệ tài khoản quản trị. SSH Key chưa được triển khai và cần được xem xét trong giai đoạn tiếp theo.
 ## 5. Backup Checklist
-### 5.1. Database Backup
-- pg_dump -Fc + filename timestamp
-- Backup hằng ngày + retention 14 ngày
-### 5.2. Filestore Backup
-- Backup filestore + filename timestamp
-- Backup hằng ngày + retention 14 ngày
-### 5.3. Offsite Backup
-- DB Backup Cloudflare R2
-- Filestore Backup Cloudclare R2
-- Tự động upload mỗi ngày
 
-### 5.4. Test Restore
-- Test restore trước go-live
-- Restore trên môi trường riêng
-- Đo thừoi gian restore
-### 5.5. Retention Policy
-- Tự động xóa các backup dài hơn 14 ngày ở VPS và Cloudclare R2
+| Category | Item | Configuration thực tế | Status |
+|---|---|---|---|
+| Database Backup | Backup Format | `pg_dump -Fc`, filename có timestamp | Pass |
+| Database Backup | Schedule | Cron chạy hằng ngày lúc 02:00 | Pass |
+| Database Backup | Retention | Tự động xóa backup cũ hơn 14 ngày trên VPS | Pass |
+| Filestore Backup | Backup Method | `tar.gz`, filename có timestamp | Pass |
+| Filestore Backup | Schedule | Backup hằng ngày lúc 02:00 | Pass |
+| Filestore Backup | Retention | Tự động xóa backup cũ hơn 14 ngày trên VPS | Pass |
+| Offsite Backup | Cloudflare R2 | Database và filestore được upload lên R2 | Pass |
+| Offsite Backup | Automatic Upload | Upload tự động trong script backup hằng ngày | Pass |
+| Test Restore | Restore Environment | Có script và cấu hình tạo môi trường restore riêng | Pass* |
+| Retention Policy | VPS | Xóa file backup cũ hơn 14 ngày | Pass |
+| Retention Policy | Cloudflare R2 | Xóa backup cũ hơn 14 ngày bằng `rclone delete --min-age 14d` | Pass |
+
+- Quy trình backup và recovery giúp đảm bảo khả năng khôi phục dữ liệu khi xảy ra sự cố như lỗi hệ thống, mất dữ liệu hoặc thao tác nhầm. Backup database kết hợp với filestore đảm bảo tính toàn vẹn dữ liệu Odoo; lưu bản sao trên Cloudflare R2 giúp giảm rủi ro mất dữ liệu khi VPS gặp sự cố. Chính sách retention 14 ngày cân bằng giữa khả năng khôi phục dữ liệu và chi phí lưu trữ. Kiểm thử restore trước go-live giúp xác nhận backup thực sự sử dụng được và đánh giá thời gian khôi phục khi có sự cố.
 
 ## 6. Monitoring Checklist
-### 6.1. Server Metrics
-- CPU alert threshold: >80%
-- RAM alert threshold: >90%
-- Disk alert threshold: >85%
-- Monitoring script: `monitor-server.sh`
-- Email alert via SMTP
+| Mục | Hạng mục | Trạng thái |
+|---|---|---|
+| 6.1 | **Server Metrics** — CPU >80%, RAM >90%, Disk >85%; `monitor-server.sh`, email alert qua SMTP | **Pass** |
+| 6.2 | **Odoo Workers** — Chưa implement | **Pending** |
+| 6.3 | **PostgreSQL** — Cảnh báo khi connection >80%, kiểm tra mỗi 5 phút | **Pass** |
+| 6.4 | **Response Time** — Theo dõi response time và p95; cảnh báo khi p95 >3 giây; cron mỗi 5 phút | **Pass** |
+| 6.5 | **Errors Log** — Theo dõi lỗi Odoo, PostgreSQL và Nginx; cron mỗi 5 phút | **Pass** |
+| 6.6 | **Uptime** — UptimeRobot báo trạng thái Up | **Pass** |
 
-### 6.2. Odoo workers
-- chưa implement
-### 6.3. PostgreSQL
-- Alert khi connection >80%, quét mỗi 5p
-### 6.4. Response Time
-### Response Time
-- Theo dõi response time
-- Theo dõi p95
-- Alert khi p95 > 3s
-- Cron chạy mỗi 5 phút
-### 6.5. Errors Log
-### 6.6. Uptime
+- Các hệ thống monitoring giúp phát hiện sớm tình trạng quá tải tài nguyên, lỗi database, phản hồi chậm và gián đoạn dịch vụ. Qua đó, quản trị viên có thể chủ động xử lý sự cố, giảm downtime và duy trì tính ổn định của hệ thống production.

@@ -36,7 +36,7 @@
                 <sheet>
                     <group>
                         <field name="product_id" readonly="1"/>
-                        <field name="field_id" readonly="1"/>
+                        <field name="field_id" readonly="1" force_save="1"/>
                         <field name="field_type" readonly="1"/>
                         <field name="required" readonly="1"/>
                         <field name="help" readonly="1"/>
@@ -91,17 +91,51 @@
 
                     <notebook>
                         <page string="Specification">
+                            <field name="field_value_ids" mode="list,form">
+                                <list create="0" delete="0" open_form_view="1">
+                                    <field name="field_id" readonly="1" force_save="1"/>
+                                    <field name="required" readonly="1"/>
+                                    <field name="display_value" readonly="1"/>
+                                </list>
+
+                                <form string="Specification Value">
+                                    <sheet>
+                                        <group>
+                                            <field name="product_id" readonly="1" invisible="not product_id"/>
+                                            <field name="field_id" readonly="1" force_save="1"/>
+                                            <field name="field_type" readonly="1"/>
+                                            <field name="required" readonly="1"/>
+                                            <field name="help" readonly="1"/>
+                                        </group>
+
+                                        <group string="Value">
+                                            <field name="value_char" invisible="field_type != 'char'"/>
+                                            <field name="value_text" invisible="field_type != 'text'"/>
+                                            <field name="value_integer" invisible="field_type != 'integer'"/>
+                                            <field name="value_float" invisible="field_type != 'float'"/>
+                                            <field name="value_boolean" invisible="field_type != 'boolean'"/>
+                                            <field name="value_date" invisible="field_type != 'date'"/>
+                                            <field name="value_datetime" invisible="field_type != 'datetime'"/>
+                                            <field name="option_id"
+                                                invisible="field_type != 'selection'"
+                                                domain="[('field_id', '=', field_id)]"/>
+                                        </group>
+                                    </sheet>
+                                </form>
+                            </field>
+                            <!--
                             <field
                                 name="field_value_ids"
                                 mode="list,form"
                                 context="{'form_view_ref': 'product_management.view_product_management_product_field_value_form'}"
                             >
                                 <list create="0" delete="0" open_form_view="1">
-                                    <field name="field_id" readonly="1"/>
+                                    <field name="field_id" readonly="1" force_save="1"/>
                                     <field name="required" readonly="1"/>
                                     <field name="display_value" readonly="1"/>
                                 </list>
                             </field>
+                            -->
                         </page>
                     </notebook>
                 </sheet>

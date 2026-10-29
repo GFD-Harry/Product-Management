@@ -1,14 +1,13 @@
-# Manual Test Cases — Product Discovery
+# Manual Test Cases — Account Management
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Dự án | Product Management PV |
-| Ứng dụng | Quản lý sản phẩm nội bộ |
-| Nguồn đầu vào | `docs/plans/implementation_plan.md` |
-| Phiên bản tài liệu | Draft 1 |
-| Ngày lập | 2026-08-22 |
+| Phiên bản tài liệu | Official |
+| Ngày lập | 18-10-2026 |
 
 ## 1. Purpose
+- Mục tiêu của testing Account Managment là xác nhận Admin có thể quản lý tài khoản chính xác: gồm tạo tài khoản, cập nhật thông tin, gán role, kích hoạt/hủy kích hoạt account, thiết lập mật khẩu tạm thời. Kiểm thử đảm bảo việc quản lý account đảm bảo đúng access control rules, và bảo vệ quyền đặc biệt của admin. 
 ## 2. Test cases
 
 ### ACC-TC-01. Product Admin mở được màn Account Management
@@ -201,3 +200,29 @@ Expected Result:
 - Hiển thị Last Updated By, Last Updated On.
 - Last Login hiển thị nếu Odoo có dữ liệu.
 - Thời gian hiển thị theo timezone/user setting của Odoo.
+
+### ACC-TC-10. Kiểm tra thông tin bắt buộc khi tạo và cập nhật account
+Status: Passed
+
+Test Data:
+- Account: TEST - Viewer Create
+- Name: để trống
+- Login: để trống hoặc giữ nguyên giá trị hợp lệ tùy trường hợp kiểm thử.
+
+Steps:
+1. Login bằng pm_admin.
+2. Vào Product Management > Accounts.
+3. Bấm Create Viewer.
+4. Để trống Name và nhập Login hợp lệ.
+5. Bấm Create và kiểm tra kết quả.
+6. Tiếp tục thử tạo account với Login để trống và Name hợp lệ.
+7. Mở account TEST - Viewer Create.
+8. Bấm Edit Account.
+9. Xóa Name hoặc Login, lần lượt thử Save.
+10. Kiểm tra kết quả sau mỗi lần thử.
+
+Expected Result:
+- Hệ thống không cho tạo hoặc cập nhật account khi thiếu trường bắt buộc.
+- Hiển thị thông báo lỗi phù hợp.
+- Không tạo account mới khi dữ liệu không hợp lệ.
+- Thông tin account hiện tại không bị thay đổi khi cập nhật thất bại.

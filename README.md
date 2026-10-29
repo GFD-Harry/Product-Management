@@ -6,19 +6,8 @@ hỗ trợ tư vấn khách hàng và theo dõi cơ bản giá bán, số lượ
 
 ## Trạng thái
 
-Dự án đã có addon nghiệp vụ, dữ liệu Test/UAT, tài liệu kiểm thử
-và cấu hình Docker Compose. Công việc hiện tại tập trung vào việc tách
-biệt Development, UAT và Production trước khi go-live.
-
-## Công nghệ
-
-- Odoo Community 19.0.
-- PostgreSQL 15.
-- Docker Engine hoặc Docker Desktop.
-- Docker Compose v2.
-
-Development dùng version tag `odoo:19.0` và `postgres:15`. Khi nghiệm thu
-hoặc triển khai production, image sẽ được khóa thêm bằng digest.
+- Đang trong quá trình Go-live nhằm phát hiện các bug phát sinh trong quá trình khách hàng sử dụng thực tế
+- Đang review và viết lại manual test case 
 
 ## Yêu cầu máy phát triển
 
@@ -210,17 +199,6 @@ hình tạm bên trong container bởi `scripts/odoo-entrypoint.sh` và không
 `compose.prod.yaml` mới là cấu hình nền; việc đóng gói addon vào image, khóa
 digest, Nginx và HTTPS thuộc Epic 9.
 
-## URL truy cập
-
-```text
-Development: http://localhost:<ODOO_PORT trong .env>
-UAT:         http://<server-ip>:<ODOO_PORT trong .env>
-Production:  https://<production-domain>
-```
-
-Production chỉ được mở cho người dùng sau khi tên miền, reverse proxy
-và HTTPS đã được cấu hình.
-
 ## Cấu trúc repository
 
 ```text
@@ -240,10 +218,6 @@ product-management-pv/
 ├── compose.dev.yaml         Cấu hình development
 └── compose.prod.yaml        Nền cấu hình production
 ```
-
-`scripts/` chỉ chứa thao tác có nhiều bước hoặc cần thực hiện nhất quán, ví dụ
-CI, cập nhật module, backup và restore. Không tạo script chỉ để thay thế một
-lệnh Compose đơn giản.
 
 ## Database
 
@@ -282,178 +256,3 @@ Hai addon dữ liệu `product_management_test_data` và
 được cài khi lệnh triển khai của đúng môi trường chỉ định rõ addon.
 Production chỉ cài `product_management`.
 
-## Quy trình Git
-
-Branch `main` phải luôn ở trạng thái có thể triển khai. Các loại branch:
-
-```text
-feature/<task-id>-<short-name>
-fix/<task-id>-<short-name>
-docs/<short-name>
-```
-
-Ví dụ:
-
-```text
-feature/SET-02-odoo-environment
-fix/SEA-01-product-search
-docs/setup-guide
-```
-
-Commit gắn với backlog phải bắt đầu bằng mã task:
-
-```text
-SET-01: initialize repository structure
-PRO-01: add product model
-```
-
-Quy trình pull request:
-
-1. Tạo branch từ phiên bản mới nhất của `main`.
-2. Mỗi branch xử lý một task hoặc thay đổi có phạm vi rõ ràng.
-3. Push branch và mở pull request vào `main`.
-4. Mô tả mục đích, thay đổi chính và cách kiểm tra.
-5. Ít nhất một thành viên khác review.
-6. Chỉ merge khi tiêu chí hoàn thành và CI đều đạt.
-7. Ưu tiên squash merge.
-
-Git tag phát hành sử dụng Semantic Versioning, ví dụ `v0.1.0`, `v1.0.0-rc.1`
-và `v1.0.0`. Không dùng tag `dev` hoặc `prod` có thể bị di chuyển làm định danh
-duy nhất.
-
-## Restore Backup từ Cloudclare R2
-### 1. Chuẩn bị
-Backup gồm 2 file:
-
-- PostgreSQL database: `product_management_prod_YYYY-MM-DD_HH-MM-SS.dump`
-- Odoo filestore: `filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz`
-
-Restore trên environment riêng `product-management-restore`.
-
-### 2. Xem các backup trên R2
-```bash
-rclone ls r2:pv-product-management-backup
-```
-Chọn cùng timestamp cho db và filestore
-
-### 3. Download Backup
-```bash
-mkdir -p ~/restore-backup
-```
-
-- Download db
-```bash
-rclone copy \
-  r2:pv-product-management-backup/filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz \
-  ~/restore-backup/ \
-  --s3-no-check-bucket
-```
-
-- Download filestores
-```bash
-rclone copy \
-  r2:pv-product-management-backup/filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz \
-  ~/restore-backup/ \
-  --s3-no-check-bucket
-```
-
-- Kiểm tra:
-```
-ls -lh ~/restore-backup/
-```
-
-### 4. Restore DB
-- Tạo DB Restore:
-```
-docker exec product-management-restore-db-1 \
-  psql -U odoo -d postgres \
-  -c "CREATE DATABASE product_management_restore OWNER odoo;"
-```
-
-- Restore
-```bash
-time docker exec -i product-management-restore-db-1 \
-  pg_restore \
-  -U odoo \
-  -d product_management_restore \
-  --no-owner \
-  < ~/restore-backup/product_management_prod_YYYY-MM-DD_HH-MM-SS.dump
-```
-
-- Kiểm tra
-```bash
-docker exec product-management-restore-db-1 \
-  psql -U odoo -d postgres \
-  -c "\l"
-```
-
-### 5. Restore Filestore
-- Dừng Odoo:
-```bash
-docker compose -p product-management-restore stop odoo
-```
-
-- Tạo thư mục filestore:
-```bash
-sudo mkdir -p \
-/var/lib/docker/volumes/product-management-restore_odoo-data/_data/filestore
-```
-
-- Extract backup:
-```bash
-sudo tar -xzf \
-~/restore-backup/filestore_product_management_prod_YYYY-MM-DD_HH-MM-SS.tar.gz \
--C /var/lib/docker/volumes/product-management-restore_odoo-data/_data/filestore
-```
-
-Lười
-
-## Xử lý lỗi thiết lập
-
-### Container không chạy
-
-Luôn thêm đúng project name, file biến môi trường và cặp file
-Compose. Ví dụ kiểm tra Development:
-
-```bash
-docker compose -p product-management-dev --env-file .env \
-  -f compose.yaml -f compose.dev.yaml ps
-
-docker compose -p product-management-dev --env-file .env \
-  -f compose.yaml -f compose.dev.yaml logs odoo db
-```
-
-### Port 8069 đã được sử dụng
-
-Đổi `ODOO_PORT` trong file môi trường tương ứng, sau đó chạy lại
-lệnh `up -d odoo` của môi trường đó.
-
-### Odoo không kết nối PostgreSQL
-
-- Kiểm tra service `db` đang chạy.
-- Kiểm tra user và password giữa Odoo và PostgreSQL khớp nhau.
-- Database host phải là tên service `db`, không phải `localhost`.
-- Kiểm tra PostgreSQL đã hoàn tất khởi tạo.
-
-### Không thấy module
-
-- Kiểm tra module nằm tại `addons/product_management`.
-- Kiểm tra `addons/` được mount tới `/mnt/extra-addons`.
-- Kiểm tra `addons_path`, manifest và các file `__init__.py`.
-- Cập nhật Apps List và xem log Odoo.
-
-### Thay mật khẩu PostgreSQL nhưng không có tác dụng
-
-Biến khởi tạo của image PostgreSQL chỉ có tác dụng khi data directory còn
-trống. Không xóa volume tùy tiện; hãy đổi mật khẩu trong PostgreSQL hoặc tạo
-lại môi trường development có kiểm soát.
-
-### Dữ liệu mất sau khi tạo lại container
-
-Kiểm tra persistent volume cho cả PostgreSQL database và Odoo filestore.
-
-## Kế hoạch
-
-Xem [mục lục kế hoạch](docs/plans/README.md),
-[kế hoạch triển khai](docs/plans/implementation_plan.md) và
-[kế hoạch tách môi trường](docs/plans/enviroment_separation_plan.md).

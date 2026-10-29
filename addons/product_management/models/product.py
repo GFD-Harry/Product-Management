@@ -3,6 +3,9 @@ from odoo.exceptions import ValidationError
 
 LOW_STOCK_THRESHOLD = 5
 
+import logging 
+_logger = logging.getLogger(__name__)
+
 
 class ProductManagementProduct(models.Model):
     _name = "product.management.product"
@@ -127,6 +130,14 @@ class ProductManagementProduct(models.Model):
 
     def _sync_field_values_with_category(self):
         for product in self:
+            _logger.info(
+                "[SYNC BEFORE] Category=%s, Values=%s",
+                product.category_id.id,
+                [
+                    (v.id, v.field_id.id, v.required, v.product_id.id)
+                    for v in product.field_value_ids
+                ]
+            )
             if not product.category_id:
                 product.field_value_ids = [(5, 0, 0)]
                 continue
@@ -154,6 +165,15 @@ class ProductManagementProduct(models.Model):
 
             if commands:
                 product.field_value_ids = commands
+
+            _logger.info(
+                "[SYNC AFTER] Category=%s, Values=%s",
+                product.category_id.id,
+                [
+                    (v.id, v.field_id.id, v.required, v.product_id.id)
+                    for v in product.field_value_ids
+                ]
+            )
 
     @api.constrains("active", "product_status")
     def _check_active_product_status_consistency(self):

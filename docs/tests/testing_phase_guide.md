@@ -3,9 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Dự án | Product Management PV |
-| Ứng dụng | Quản lý sản phẩm nội bộ |
-| Nguồn đầu vào | [Implementation Plan](../plans/implementation_plan.md) |
-| Phiên bản tài liệu | Draft 1 |
+| Phiên bản tài liệu | Official |
 | Ngày lập | 2026-08-21 |
 
 Tài liệu này quy định cách chuẩn bị môi trường, dữ liệu, user test, format test case, cách xử lý lỗi trong Testing Phase của Product Management PV
@@ -63,23 +61,8 @@ Status:
 Notes:
 ```
 
-## 5. Bug Handling:
-Khi test fail:
-1. Ghi test case ID
-2. Ghi expected result và actual result
-3. Đính kèm screenshot/log
-4. Ghi env/db đang test
-5. Tạo task fix hoặc note trong implemenation plan
-6. Rêtst sau khi fix
 
-## 6. UI Enhance:
-UI issue được xử lý trong Testing nếu:
-- Gây hiểu lầm khi thao tác
-- Làm chậm hoặc cản trở luồng chính
-- Hiển thị sai/khó đọc
-- Làm test case fail
-
-## 6. Feature Test Document:
+## 5. Feature Test Document:
 - `category_management.md`
 - `product_management.md`
 - `product_discovery.md`

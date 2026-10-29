@@ -3,10 +3,8 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Dự án | Product Management PV |
-| Ứng dụng | Quản lý sản phẩm nội bộ |
-| Nguồn đầu vào | [Implementation Plan](../plans/implementation_plan.md) |
-| Phiên bản tài liệu | Draft 1 |
-| Ngày lập | 2026-08-22 |
+| Phiên bản tài liệu | Officiel |
+| Ngày lập | 18-10-2026 |
 
 ## 1. Scope
 Kiểm tra các luồng chính của Category Management:
@@ -56,7 +54,7 @@ Status: Pass
 
 Preconditions:
 - Có category active dùng riêng cho test archive.
-
+   
 Steps:
 1. Login bằng Product Management Admin.
 2. Mở category test.
